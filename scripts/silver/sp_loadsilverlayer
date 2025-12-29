@@ -62,3 +62,42 @@ prd_start_dt,
 DATEADD(day,-1,LEAD(prd_start_dt) OVER(PARTITION bY prd_key ORDER BY prd_start_dt ASC)) AS prd_end_dt
 FROM bronze.crm_prd_info;
 
+---------------------------------------------------------------------------------
+
+TRUNCATE TABLE silver.crm_sales_details;
+
+INSERT INTO silver.crm_sales_details
+(sls_ord_num,
+sls_prd_key,
+sls_cust_id,
+sls_order_dt,
+sls_ship_dt,
+sls_due_dt,
+sls_sales,
+sls_quantity,
+sls_price)
+
+select 
+sls_ord_num,
+sls_prd_key,
+sls_cust_id,
+CASE WHEN len(sls_order_dt)!=8 THEN NULL
+	ELSE CAST(CAST(sls_order_dt AS VARCHAR) AS DATE) 
+END sls_order_dt,
+CASE WHEN len(sls_ship_dt)!=8 THEN NULL
+	ELSE CAST(CAST(sls_ship_dt AS VARCHAR) AS DATE) 
+END sls_ship_dt,
+CASE WHEN len(sls_due_dt)!=8 THEN NULL
+	ELSE CAST(CAST(sls_due_dt AS VARCHAR) AS DATE) 
+END sls_due_dt,
+CASE WHEN (sls_sales IS NULL OR sls_sales<=0 OR sls_sales!=ABS(sls_quantity)*ABS(sls_price))
+	THEN ABS(sls_quantity)*ABS(sls_price)
+	ELSE sls_sales
+END sls_sales,--Recalculate Sales when its value is Invalid
+sls_quantity,
+CASE WHEN sls_price IS NULL OR sls_price<=0
+	THEN sls_sales/NULLIF(sls_quantity,0)
+	ELSE sls_price
+END sls_price--Recalculate from Sales and quantity when value is incorrect
+FROM bronze.crm_sales_details;
+
