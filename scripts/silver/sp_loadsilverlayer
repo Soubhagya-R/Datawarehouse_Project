@@ -32,5 +32,33 @@ INSERT INTO silver.crm_cust_info(
 			ROW_NUMBER() OVER(PARTITION BY cst_id ORDER BY cst_create_date desc) AS flag_latest
 		FROM bronze.crm_cust_info
 		WHERE cst_id IS NOT NULL)t 
-	WHERE t.flag_latest=1
+	WHERE t.flag_latest=1;
+------------------------------------------------------------------------
+TRUNCATE TABLE silver.crm_prd_info;
+INSERT INTO silver.crm_prd_info(
+prd_id,
+category_id,
+product_key,
+prd_nm,
+prd_cost,
+prd_line,
+prd_start_dt,
+prd_end_dt)
+
+SELECT 
+prd_id,
+REPLACE(SUBSTRING(prd_key,1,5),'-','_') category_id,
+SUBSTRING(prd_key,7,LEN(prd_key)) product_key,
+prd_nm,
+ISNULL(prd_cost,0) prd_cost,
+CASE UPPER(TRIM(prd_line))
+	WHEN 'M' THEN 'Mountain'
+	WHEN 'R' THEN 'Road'
+	WHEN 'S' THEN 'Other Sales'
+	WHEN 'T' THEN 'Touring'
+	ELSE 'n/a'
+END prd_line,
+prd_start_dt,
+DATEADD(day,-1,LEAD(prd_start_dt) OVER(PARTITION bY prd_key ORDER BY prd_start_dt ASC)) AS prd_end_dt
+FROM bronze.crm_prd_info;
 
